@@ -9,7 +9,7 @@ En esta práctica veremos como realizar interfaces para la interacción persona-
 
 En esta práctica se ha hecho uso de **MediaPipe**, un framework de código abierto desarrollado por Google que permite construir e implementar _pipelines_ de procesamiento multimedia (como video, audio e imágenes) en tiempo real, especialmente útiles para tareas de visión por computador y aprendizaje automático. Ofrece soluciones preentrenadas y optimizadas (como **detección facial**, **reconocimiento de gestos**, **estimación de pose**, **seguimiento de manos** o **segmentación de objetos**) que funcionan eficientemente tanto en dispositivos móviles como en un computador. Gracias a su arquitectura modular y multiplataforma, MediaPipe ha facilitado el desarrollo rápido de aplicaciones de inteligencia artificial.
 
-Este repositorio contiene un juego sencillo usando la librería de MediaPipe que puede servir como guía para el desarrollo de la práctica. Para crear vuesto videojuego, podeis hacer uso de los modelos que ofrece MediaPipe en su página oficial:
+Este repositorio contiene un juego sencillo usando la librería de MediaPipe que puede servir como guía para el desarrollo de la práctica. Para crear vuesto videojuego, podéis hacer uso de los modelos que ofrece MediaPipe en su página oficial:
 
 - *```Pose Landmarker```* (usado en este repositorio), [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker?hl=es-419).
 - *```Hand Landmarker```*, [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker?hl=es-419).
