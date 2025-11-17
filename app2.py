@@ -26,34 +26,26 @@ def calcular_angulo(a, b, c):
     """
     Calcula el ángulo en el vértice 'b'.
     """
-    # Si los puntos no son visibles, no podemos calcular un ángulo fiable
     if a.visibility < 0.5 or b.visibility < 0.5 or c.visibility < 0.5:
         return None
 
-    # Coordenadas de los landmarks (solo x, y)
     A = np.array([a.x, a.y])
     B = np.array([b.x, b.y])
     C = np.array([c.x, c.y])
     
-    # Vectores
     ba = A - B
     bc = C - B
     
-    # Producto escalar y magnitud
     prod_escalar = np.dot(ba, bc)
     magnitud_ba = np.linalg.norm(ba)
     magnitud_bc = np.linalg.norm(bc)
     
-    # Evitar división por cero
     if magnitud_ba == 0 or magnitud_bc == 0:
-        return None # Devolvemos None
+        return None
         
-    # Ángulo en radianes
     cos_theta = prod_escalar / (magnitud_ba * magnitud_bc)
-    cos_theta = np.clip(cos_theta, -1.0, 1.0) # Corregir posibles errores de precisión
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
     angulo_rad = np.arccos(cos_theta)
-    
-    # Convertir a grados  
     angulo_grados = np.degrees(angulo_rad)
     
     return angulo_grados
@@ -70,34 +62,54 @@ def redimensionar_imagen(image, target_shape, bg_color=(0, 0, 0)):
     
     new_w, new_h = int(w * scale), int(h * scale)
     
-    # Redimensionar la imagen
     resized_img = cv2.resize(image, (new_w, new_h))
     
-    # Crear un lienzo del color de fondo
     canvas = np.full((target_h, target_w, 3), bg_color, dtype=np.uint8)
     
-    # Calcular la posición para centrar la imagen
     x_center = (target_w - new_w) // 2
     y_center = (target_h - new_h) // 2
     
-    # Pegar la imagen redimensionada en el centro del lienzo
     canvas[y_center:y_center+new_h, x_center:x_center+new_w] = resized_img
     
     return canvas
 
+def draw_text_with_background(img, text, pos, font=cv2.FONT_HERSHEY_SIMPLEX, 
+                               font_scale=1, text_color=(255, 255, 255), 
+                               bg_color=(0, 0, 0), thickness=2, padding=10):
+    """
+    Dibuja texto con fondo semi-transparente para mejor legibilidad
+    """
+    x, y = pos
+    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+    
+    # Crear overlay semi-transparente
+    overlay = img.copy()
+    cv2.rectangle(overlay, 
+                  (x - padding, y - text_size[1] - padding), 
+                  (x + text_size[0] + padding, y + padding), 
+                  bg_color, -1)
+    
+    # Mezclar overlay con imagen original (transparencia)
+    alpha = 0.7
+    cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
+    
+    # Dibujar texto
+    cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
+
 try:
-    # (Usa el nombre del fondo que te generé y guardaste)
-    fondo_playa = cv2.imread("fotos/fondo_yoga.png") 
-    LIENZO_SHAPE = (1280, 720) # Ancho, Alto
-    fondo_playa = cv2.resize(fondo_playa, LIENZO_SHAPE)
+    # Ya no necesitamos cargar un fondo separado porque cada imagen lo tiene
+    fondo_playa = np.full((720, 1280, 3), (200, 150, 100), dtype=np.uint8)  # Solo para inicio
+    LIENZO_SHAPE = (1280, 720)
 except Exception as e:
-    print(f"Error cargando fondo_playa: {e}")
-    # Crear un fondo negro si falla
-    fondo_playa = np.zeros((LIENZO_SHAPE[1], LIENZO_SHAPE[0]), dtype=np.uint8)
+    print(f"Error: {e}")
+    fondo_playa = np.zeros((720, 1280, 3), dtype=np.uint8)
 
 W_LIENZO, H_LIENZO = LIENZO_SHAPE
-W_PROFESOR = W_LIENZO // 3
-W_USUARIO = W_LIENZO - W_PROFESOR
+
+# NUEVO DISEÑO: Cámara más pequeña en esquina
+W_CAMARA_DISPLAY = 900  # Ancho de la cámara en pantalla
+H_CAMARA_DISPLAY = 700  # Alto de la cámara en pantalla
+MARGEN = 10  # Margen desde los bordes
 
 MAPEO_IMAGENES = {
     "FLEXION": "flexion.png",
@@ -107,7 +119,7 @@ MAPEO_IMAGENES = {
     "PINZA_DE_PIE": "pinza de pie.png",
     "PINZA_SENTADA": "pinza sentada.png",
     "ARBOL": "pose arbol yoga.png",
-    "POSE_FACIL": "pose facil.png",
+    "POSE_FACIL": "fondo con pose facil.png",
     "TRIANGULO_EXTENDIDO": "pose triangulo extendido.png",
     "BARCA": "postura de la barca.png",
     "SENTADILLA": "sentadilla.png",
@@ -118,17 +130,17 @@ MAPEO_IMAGENES = {
     "MESA": "postura del gato.png"
 }
 
+# Cargar imágenes del muñeco CON FONDO (ya vienen completas)
 POSTURAS_IMAGENES = {}
 for nombre_postura, nombre_archivo in MAPEO_IMAGENES.items():
     try:
         img = cv2.imread(f'fotos/{nombre_archivo}')
-        # Redimensionar con relleno para que quepa en su mitad
-        img_resized = redimensionar_imagen(img, (W_PROFESOR, H_LIENZO))
-        POSTURAS_IMAGENES[nombre_postura] = img_resized
+        # Las imágenes ya tienen el fondo, solo las cargamos
+        POSTURAS_IMAGENES[nombre_postura] = img
     except Exception as e:
         print(f"Error cargando {nombre_archivo}: {e}")
-        # Poner una imagen negra si falla
-        POSTURAS_IMAGENES[nombre_postura] = np.zeros((H_LIENZO, W_PROFESOR, 3), dtype=np.uint8)
+        # Fondo azul de emergencia
+        POSTURAS_IMAGENES[nombre_postura] = np.full((720, 1280, 3), (200, 150, 100), dtype=np.uint8)
 
 LISTA_POSTURAS = [
     "POSE_FACIL",
@@ -156,17 +168,14 @@ with PoseLandmarker.create_from_options(options) as landmarker:
         print("Error: No se puede abrir la cámara.")
         sys.exit()
 
-    # Obtener dimensiones de la cámara (para cálculos)
     H_CAM = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     W_CAM = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-    # --- Variables de estado del juego (MODIFICADO) ---
-    estado_juego = "INICIO" # Estados: "INICIO", "JUGANDO", "TERMINADO"
+    estado_juego = "INICIO"
     postura_actual_idx = 0
-    postura_tiempo_inicio = None # Timer para saber cuánto tiempo mantiene la pose
+    postura_tiempo_inicio = None
     SEGUNDOS_PARA_SUPERAR = 3 
 
-    # Timers para MediaPipe y Delta Time
     timestamp = 0
     start_time = time.time()
 
@@ -176,40 +185,52 @@ with PoseLandmarker.create_from_options(options) as landmarker:
             print("Error al leer frame.")
             break
 
-        # Voltear el frame (efecto espejo)
         frame = cv2.flip(frame, 1)
 
-        # --- 1. Preparar el Lienzo (UI) ---
+        # Preparar el Lienzo con fondo completo
         lienzo = fondo_playa.copy()
         
-        # -----------------------------------------------------------------
-        # --- LÓGICA DE ESTADOS ---
-        # -----------------------------------------------------------------
-        
         if estado_juego == "INICIO":
-            # --- PANTALLA DE INICIO ---
-            cv2.putText(lienzo, "Bienvenido a la clase de Yoga", (W_LIENZO // 2 - 400, H_LIENZO // 2 - 200), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 3)
-            cv2.putText(lienzo, "Pulsa ESPACIO para iniciar", (W_LIENZO // 2 - 300, H_LIENZO // 2 + 250), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 3)
+            # Pantalla de inicio mejorada
+            draw_text_with_background(lienzo, "BIENVENIDO A LA CLASE DE YOGA", 
+                                    (W_LIENZO // 2 - 400, H_LIENZO // 2 - 100), 
+                                    font_scale=1.8, text_color=(255, 255, 255), 
+                                    bg_color=(0, 100, 200), thickness=3, padding=20)
+            
+            draw_text_with_background(lienzo, "Pulsa ESPACIO para iniciar", 
+                                    (W_LIENZO // 2 - 250, H_LIENZO // 2 + 100), 
+                                    font_scale=1.2, text_color=(255, 255, 0), 
+                                    bg_color=(50, 50, 50), thickness=2, padding=15)
 
         elif estado_juego == "TERMINADO":
-            # --- PANTALLA DE FIN DE JUEGO ---
-            cv2.putText(lienzo, "HAS COMPLETADO LA SESION!", (W_LIENZO // 2 - 400, H_LIENZO // 2), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-            cv2.putText(lienzo, "Pulsa ESC para salir", (W_LIENZO // 2 - 150, H_LIENZO // 2 + 60), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            draw_text_with_background(lienzo, "¡HAS COMPLETADO LA SESION!", 
+                                    (W_LIENZO // 2 - 350, H_LIENZO // 2), 
+                                    font_scale=1.8, text_color=(0, 255, 0), 
+                                    bg_color=(0, 0, 0), thickness=3, padding=20)
+            
+            draw_text_with_background(lienzo, "Pulsa ESC para salir", 
+                                    (W_LIENZO // 2 - 180, H_LIENZO // 2 + 80), 
+                                    font_scale=1.2, text_color=(255, 255, 255), 
+                                    bg_color=(50, 50, 50), thickness=2, padding=15)
         
         elif estado_juego == "JUGANDO":
-            # --- INTERFAZ DE JUEGO NORMAL ---
             nombre_postura = LISTA_POSTURAS[postura_actual_idx]
             definicion_postura = POSTURAS_YOGA[nombre_postura]
             img_profesor = POSTURAS_IMAGENES[nombre_postura]
             
-            # Pegar imagen del profesor (ya redimensionada)
-            lienzo[0:H_LIENZO, 0:W_PROFESOR] = img_profesor
-            
-            # --- 2. Detección de Pose ---
+            # Redimensionar como siempre
+            img_completa = cv2.resize(img_profesor, (W_LIENZO, H_LIENZO))
+
+            # Crear lienzo vacío
+            lienzo = np.zeros_like(img_completa)
+
+            # Desplazamiento hacia la izquierda (en píxeles)
+            shift = 150
+
+            # Copiar la imagen desplazada hacia la izquierda
+            lienzo[:, :W_LIENZO - shift] = img_completa[:, shift:]
+
+            # Detección de Pose
             end_time = time.time()
             t = end_time - start_time
             start_time = end_time
@@ -219,7 +240,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
             result = landmarker.detect_for_video(mp_image, timestamp)
             all_angles_correct = False
 
-            # --- 3. Lógica de Ángulos ---
+            # Lógica de Ángulos
             if result.pose_landmarks:
                 person_landmarks = result.pose_landmarks[0]
                 feedback_colores = {}
@@ -236,7 +257,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                         
                         color_articulacion = (0, 0, 255)
                         
-                        if angulo_usuario is None: # Comprobación
+                        if angulo_usuario is None:
                             all_angles_correct = False
                         else:
                             error = abs(angulo_usuario - angulo_objetivo)
@@ -246,7 +267,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                                 all_angles_correct = False
                         feedback_colores[p2_idx] = color_articulacion
 
-                    # --- 4. Dibujar Feedback en el frame ---
+                    # Dibujar Feedback en el frame
                     for articulacion_idx, color in feedback_colores.items():
                         articulacion = person_landmarks[articulacion_idx]
                         x, y = int(articulacion.x * W_CAM), int(articulacion.y * H_CAM)
@@ -256,73 +277,96 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                 except Exception as e:
                     all_angles_correct = False
 
-            # Redimensionar frame del usuario y pegarlo
-            frame_con_feedback = redimensionar_imagen(frame, (W_USUARIO, H_LIENZO))
-            lienzo[0:H_LIENZO, W_PROFESOR:W_LIENZO] = frame_con_feedback
+            # NUEVO: Redimensionar cámara más pequeña
+            frame_resized = cv2.resize(frame, (W_CAMARA_DISPLAY, H_CAMARA_DISPLAY))
             
-            # --- 5. Lógica de Estado del Juego ---
-            cv2.putText(lienzo, nombre_postura.replace("_", " "), (20, 50), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
-            cv2.putText(lienzo, "Presione ENTER para saltar", (10, 550), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.95, (255, 255, 255), 3)
-            cv2.putText(lienzo, "  a la siguiente postura", (13, 600), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
+            # Posicionar cámara en la esquina superior derecha con borde elegante
+            x_cam = W_LIENZO - W_CAMARA_DISPLAY 
+            y_cam = MARGEN
+            
+            # Dibujar borde blanco alrededor de la cámara
+            cv2.rectangle(lienzo, 
+                         (x_cam - 5, y_cam - 5), 
+                         (x_cam + W_CAMARA_DISPLAY + 5, y_cam + H_CAMARA_DISPLAY + 5), 
+                         (255, 255, 255), 5)
+            
+            # Pegar cámara del usuario
+            lienzo[y_cam:y_cam+H_CAMARA_DISPLAY, x_cam:x_cam+W_CAMARA_DISPLAY] = frame_resized
+            
+            # Título de la postura (arriba a la izquierda, con fondo)
+            draw_text_with_background(lienzo, nombre_postura.replace("_", " "), 
+                                    (30, 60), font_scale=1.5, 
+                                    text_color=(255, 255, 0), 
+                                    bg_color=(0, 0, 0), thickness=3, padding=15)
+            
+            # Instrucciones (abajo a la izquierda)
+            draw_text_with_background(lienzo, "Presiona ENTER para saltar", 
+                                    (30, H_LIENZO - 550), font_scale=0.7,
+                                    text_color=(255, 255, 255), 
+                                    bg_color=(50, 50, 50), thickness=2, padding=10)
 
+            # Barra de progreso y estado
             if all_angles_correct:
                 if postura_tiempo_inicio is None:
                     postura_tiempo_inicio = time.time()
                 tiempo_mantenido = time.time() - postura_tiempo_inicio
                 
-                progreso = int((tiempo_mantenido / SEGUNDOS_PARA_SUPERAR) * (W_USUARIO - 40))
-                progreso = min(progreso, W_USUARIO - 40)
+                # Barra de progreso debajo de la cámara
+                barra_width = W_CAMARA_DISPLAY - 20
+                progreso = int((tiempo_mantenido / SEGUNDOS_PARA_SUPERAR) * barra_width)
+                progreso = min(progreso, barra_width)
                 
-                # La 'x' debe empezar en W_PROFESOR, no en W_USUARIO
-                x_barra = W_PROFESOR + 20
+                x_barra = x_cam + 10
+                y_barra = y_cam + H_CAMARA_DISPLAY + 20
                 
-                cv2.rectangle(lienzo, (x_barra, 80), (W_LIENZO - 20, 110), (0, 0, 0), -1)
-                cv2.rectangle(lienzo, (x_barra, 80), (x_barra + progreso, 110), (0, 255, 0), -1)
-                cv2.putText(lienzo, f"MANTEN: {int(tiempo_mantenido)+1}s", (x_barra + 10, 105), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                # Fondo de la barra
+                cv2.rectangle(lienzo, (x_barra, y_barra), 
+                            (x_barra + barra_width, y_barra + 30), (0, 0, 0), -1)
+                # Progreso
+                cv2.rectangle(lienzo, (x_barra, y_barra), 
+                            (x_barra + progreso, y_barra + 30), (0, 255, 0), -1)
+                # Borde
+                cv2.rectangle(lienzo, (x_barra, y_barra), 
+                            (x_barra + barra_width, y_barra + 30), (255, 255, 255), 2)
+                
+                # Texto del tiempo
+                cv2.putText(lienzo, f"Mantén: {int(tiempo_mantenido)+1}s / {SEGUNDOS_PARA_SUPERAR}s", 
+                           (x_barra + 10, y_barra + 20), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
                 if tiempo_mantenido > SEGUNDOS_PARA_SUPERAR:
                     postura_actual_idx += 1
                     postura_tiempo_inicio = None
                     if postura_actual_idx >= len(LISTA_POSTURAS):
-                        estado_juego = "TERMINADO" # <-- Cambio de estado
+                        estado_juego = "TERMINADO"
             else:
                 postura_tiempo_inicio = None
-                cv2.putText(lienzo, "Alinea tu cuerpo", (20, 100), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                # Mensaje de alineación
+                draw_text_with_background(lienzo, "Alinea tu cuerpo", 
+                                        (30, 120), font_scale=1.2, 
+                                        text_color=(255, 100, 100), 
+                                        bg_color=(0, 0, 0), thickness=2, padding=10)
 
-        # -----------------------------------------------------------------
-        # --- FIN LÓGICA DE ESTADOS ---
-        # -----------------------------------------------------------------
-
-        # --- 6. Mostrar resultado ---
         cv2.imshow("Profesor de Yoga - IPM", lienzo)
 
-        # --- 7. Lógica de Teclas ---
         key = cv2.waitKey(5) & 0xFF
         
-        # Salir con 'ESC' (funciona en todos los estados)
-        if key == 27:
+        if key == 27:  # ESC
             break
             
-        # Teclas que dependen del estado
         if estado_juego == "INICIO":
-            if key == 32: # Código 32 es la barra ESPACIADORA
+            if key == 32:  # ESPACIO
                 estado_juego = "JUGANDO"
-                start_time = time.time() # Reiniciar temporizadores del juego
+                start_time = time.time()
                 timestamp = 0
                 
         elif estado_juego == "JUGANDO":
-            if key == 13: # Código 13 es ENTER
+            if key == 13:  # ENTER
                 print(f"Saltando postura: {LISTA_POSTURAS[postura_actual_idx]}")
                 postura_actual_idx += 1
                 postura_tiempo_inicio = None 
                 if postura_actual_idx >= len(LISTA_POSTURAS):
-                    estado_juego = "TERMINADO" # Cambio de estado
+                    estado_juego = "TERMINADO"
 
-    # --- Limpieza ---
     cap.release()
     cv2.destroyAllWindows()
