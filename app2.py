@@ -50,96 +50,175 @@ def calcular_angulo(a, b, c):
     
     return angulo_grados
 
-def redimensionar_imagen(image, target_shape, bg_color=(0, 0, 0)):
+def crear_fondo_gradiente(width, height, color1, color2, vertical=True):
     """
-    Redimensiona una imagen a target_shape (w, h) manteniendo la relación de aspecto
-    y rellenando el espacio sobrante con bg_color.
+    Crea un fondo con gradiente suave entre dos colores.
     """
-    target_w, target_h = target_shape
-    h, w, _ = image.shape
+    imagen = np.zeros((height, width, 3), dtype=np.uint8)
     
-    scale = min(target_w / w, target_h / h)
+    if vertical:
+        for i in range(height):
+            ratio = i / height
+            color = tuple([int(color1[j] * (1 - ratio) + color2[j] * ratio) for j in range(3)])
+            imagen[i, :] = color
+    else:
+        for i in range(width):
+            ratio = i / width
+            color = tuple([int(color1[j] * (1 - ratio) + color2[j] * ratio) for j in range(3)])
+            imagen[:, i] = color
     
-    new_w, new_h = int(w * scale), int(h * scale)
-    
-    resized_img = cv2.resize(image, (new_w, new_h))
-    
-    canvas = np.full((target_h, target_w, 3), bg_color, dtype=np.uint8)
-    
-    x_center = (target_w - new_w) // 2
-    y_center = (target_h - new_h) // 2
-    
-    canvas[y_center:y_center+new_h, x_center:x_center+new_w] = resized_img
-    
-    return canvas
+    return imagen
+
+def dibujar_texto_con_sombra(img, text, pos, font=cv2.FONT_HERSHEY_SIMPLEX, 
+                             font_scale=1, text_color=(255, 255, 255), 
+                             shadow_color=(0, 0, 0), thickness=2, shadow_offset=3):
+    """
+    Dibuja texto con sombra para mejor legibilidad
+    """
+    x, y = pos
+    # Sombra
+    cv2.putText(img, text, (x + shadow_offset, y + shadow_offset), 
+                font, font_scale, shadow_color, thickness + 1)
+    # Texto
+    cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
 
 def draw_text_with_background(img, text, pos, font=cv2.FONT_HERSHEY_SIMPLEX, 
                                font_scale=1, text_color=(255, 255, 255), 
-                               bg_color=(0, 0, 0), thickness=2, padding=10):
+                               bg_color=(0, 0, 0), thickness=2, padding=15, border_radius=20):
     """
-    Dibuja texto con fondo semi-transparente para mejor legibilidad
+    Dibuja texto con fondo semi-transparente y bordes redondeados para mejor legibilidad
     """
     x, y = pos
     text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
     
     # Crear overlay semi-transparente
     overlay = img.copy()
-    cv2.rectangle(overlay, 
-                  (x - padding, y - text_size[1] - padding), 
-                  (x + text_size[0] + padding, y + padding), 
-                  bg_color, -1)
+    
+    # Coordenadas del rectángulo
+    x1 = x - padding
+    y1 = y - text_size[1] - padding
+    x2 = x + text_size[0] + padding
+    y2 = y + padding
+    
+    # Dibujar rectángulo con bordes redondeados
+    # Esquinas
+    cv2.ellipse(overlay, (x1 + border_radius, y1 + border_radius), 
+                (border_radius, border_radius), 180, 0, 90, bg_color, -1)
+    cv2.ellipse(overlay, (x2 - border_radius, y1 + border_radius), 
+                (border_radius, border_radius), 270, 0, 90, bg_color, -1)
+    cv2.ellipse(overlay, (x1 + border_radius, y2 - border_radius), 
+                (border_radius, border_radius), 90, 0, 90, bg_color, -1)
+    cv2.ellipse(overlay, (x2 - border_radius, y2 - border_radius), 
+                (border_radius, border_radius), 0, 0, 90, bg_color, -1)
+    
+    # Rectángulos para rellenar el centro
+    cv2.rectangle(overlay, (x1 + border_radius, y1), (x2 - border_radius, y2), bg_color, -1)
+    cv2.rectangle(overlay, (x1, y1 + border_radius), (x2, y2 - border_radius), bg_color, -1)
     
     # Mezclar overlay con imagen original (transparencia)
-    alpha = 0.7
+    alpha = 0.8
     cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
     
     # Dibujar texto
     cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
 
-try:
-    # Ya no necesitamos cargar un fondo separado porque cada imagen lo tiene
-    fondo_playa = np.full((720, 1280, 3), (200, 150, 100), dtype=np.uint8)  # Solo para inicio
-    LIENZO_SHAPE = (1280, 720)
-except Exception as e:
-    print(f"Error: {e}")
-    fondo_playa = np.zeros((720, 1280, 3), dtype=np.uint8)
+def dibujar_circulo_om(img, centro, radio, color):
+    """
+    Dibuja un símbolo decorativo (círculo Om estilizado)
+    """
+    x, y = centro
+    # Círculo exterior
+    cv2.circle(img, (x, y), radio, color, 3)
+    # Círculo interior
+    cv2.circle(img, (x, y), int(radio * 0.6), color, 2)
+    # Línea central
+    cv2.line(img, (x, y - radio), (x, y + radio), color, 2)
 
+# Dimensiones de la pantalla
+LIENZO_SHAPE = (1280, 720)
 W_LIENZO, H_LIENZO = LIENZO_SHAPE
 
-# NUEVO DISEÑO: Cámara más pequeña en esquina
-W_CAMARA_DISPLAY = 900  # Ancho de la cámara en pantalla
-H_CAMARA_DISPLAY = 700  # Alto de la cámara en pantalla
-MARGEN = 10  # Margen desde los bordes
+# Intentar cargar imágenes personalizadas, si no existen, usar gradientes
+try:
+    fondo_inicio = cv2.imread('fotos/inicio.jpg')
+    if fondo_inicio is None:
+        raise FileNotFoundError
+    fondo_inicio = cv2.resize(fondo_inicio, (W_LIENZO, H_LIENZO))
+    print("Imagen de inicio cargada correctamente")
+except:
+    print("No se encontró inicio.jpg, usando fondo generado")
+    # INICIO: Gradiente morado-azul (colores relajantes)
+    fondo_inicio = crear_fondo_gradiente(W_LIENZO, H_LIENZO, 
+                                          (140, 90, 60),    # Morado oscuro (BGR)
+                                          (180, 130, 50),   # Morado claro
+                                          vertical=True)
+    # Círculos Om decorativos en el fondo de inicio
+    for i in range(5):
+        x = int(W_LIENZO * (0.2 + i * 0.15))
+        y = int(H_LIENZO * 0.15)
+        dibujar_circulo_om(fondo_inicio, (x, y), 30, (180, 150, 100))
+        
+    for i in range(5):
+        x = int(W_LIENZO * (0.2 + i * 0.15))
+        y = int(H_LIENZO * 0.85)
+        dibujar_circulo_om(fondo_inicio, (x, y), 30, (180, 150, 100))
+
+try:
+    fondo_final = cv2.imread('fotos/final.jpg')
+    if fondo_final is None:
+        raise FileNotFoundError
+    fondo_final = cv2.resize(fondo_final, (W_LIENZO, H_LIENZO))
+    print("Imagen final cargada correctamente")
+except:
+    print("No se encontró final.jpg, usando fondo generado")
+    # FINAL: Gradiente verde-azul (colores de logro)
+    fondo_final = crear_fondo_gradiente(W_LIENZO, H_LIENZO, 
+                                         (100, 180, 50),   # Verde azulado (BGR)
+                                         (150, 200, 100),  # Verde más claro
+                                         vertical=True)
+    # Estrellas decorativas en el fondo final
+    for i in range(8):
+        x = int(W_LIENZO * (0.1 + i * 0.11))
+        y = int(H_LIENZO * 0.2)
+        cv2.circle(fondo_final, (x, y), 8, (255, 255, 150), -1)
+
+    for i in range(8):
+        x = int(W_LIENZO * (0.1 + i * 0.11))
+        y = int(H_LIENZO * 0.8)
+        cv2.circle(fondo_final, (x, y), 8, (255, 255, 150), -1)
+
+# Configuración de cámara
+W_CAMARA_DISPLAY = 800
+H_CAMARA_DISPLAY = 700
+MARGEN = 10
 
 MAPEO_IMAGENES = {
-    "FLEXION": "flexion.png",
-    "GUERRERO_4": "guerrero 4.png",
-    "PERRO_BOCA_ABAJO": "perro boca abajo.png",
-    "PERRO_BOCA_ARRIBA": "perro boca arriba.png",
-    "PINZA_DE_PIE": "pinza de pie.png",
-    "PINZA_SENTADA": "pinza sentada.png",
-    "ARBOL": "pose arbol yoga.png",
-    "POSE_FACIL": "fondo con pose facil.png",
-    "TRIANGULO_EXTENDIDO": "pose triangulo extendido.png",
-    "BARCA": "postura de la barca.png",
-    "SENTADILLA": "sentadilla.png",
-    "GUERRERO_2": "postura guerrero 2.png",
-    "PLANCHA_LATERAL": "postura plancha lateral.png",
-    "GUERRERO_3": "postura guerrero 3.png",
-    "GUERRERO_1": "postura guerrero 1.png",
-    "MESA": "postura del gato.png"
+    "FLEXION": "flexion.jpg",
+    "GUERRERO_4": "guerrero 4.jpg",
+    "PERRO_BOCA_ABAJO": "perro boca abajo.jpg",
+    "PERRO_BOCA_ARRIBA": "perro boca arriba.jpg",
+    "PINZA_DE_PIE": "pinza de pie.jpg",
+    "PINZA_SENTADA": "pinza sentada.jpg",
+    "ARBOL": "arbol.jpg",
+    "POSE_FACIL": "facil.jpg",
+    "TRIANGULO_EXTENDIDO": "triangulo extendido.jpg",
+    "BARCA": "barca.jpg",
+    "SENTADILLA": "sentadilla.jpg",
+    "GUERRERO_2": "guerrero 2.jpg",
+    "PLANCHA_LATERAL": "plancha lateral.jpg",
+    "GUERRERO_3": "guerrero 3.jpg",
+    "GUERRERO_1": "guerrero 1.jpg",
+    "MESA": "gato.jpg"
 }
 
-# Cargar imágenes del muñeco CON FONDO (ya vienen completas)
+# Cargar imágenes de posturas
 POSTURAS_IMAGENES = {}
 for nombre_postura, nombre_archivo in MAPEO_IMAGENES.items():
     try:
         img = cv2.imread(f'fotos/{nombre_archivo}')
-        # Las imágenes ya tienen el fondo, solo las cargamos
         POSTURAS_IMAGENES[nombre_postura] = img
     except Exception as e:
         print(f"Error cargando {nombre_archivo}: {e}")
-        # Fondo azul de emergencia
         POSTURAS_IMAGENES[nombre_postura] = np.full((720, 1280, 3), (200, 150, 100), dtype=np.uint8)
 
 LISTA_POSTURAS = [
@@ -187,47 +266,190 @@ with PoseLandmarker.create_from_options(options) as landmarker:
 
         frame = cv2.flip(frame, 1)
 
-        # Preparar el Lienzo con fondo completo
-        lienzo = fondo_playa.copy()
-        
         if estado_juego == "INICIO":
-            # Pantalla de inicio mejorada
-            draw_text_with_background(lienzo, "BIENVENIDO A LA CLASE DE YOGA", 
-                                    (W_LIENZO // 2 - 400, H_LIENZO // 2 - 100), 
-                                    font_scale=1.8, text_color=(255, 255, 255), 
-                                    bg_color=(0, 100, 200), thickness=3, padding=20)
+            # Usar el fondo decorativo de inicio
+            lienzo = fondo_inicio.copy()
             
-            draw_text_with_background(lienzo, "Pulsa ESPACIO para iniciar", 
-                                    (W_LIENZO // 2 - 250, H_LIENZO // 2 + 100), 
-                                    font_scale=1.2, text_color=(255, 255, 0), 
-                                    bg_color=(50, 50, 50), thickness=2, padding=15)
+            # Rectángulo decorativo central con bordes redondeados y sombra
+            # Sombra
+            shadow_offset = 10
+            radius = 40
+            overlay_shadow = lienzo.copy()
+            x1, y1 = int(W_LIENZO * 0.1), int(H_LIENZO * 0.08)
+            x2, y2 = int(W_LIENZO * 0.9), int(H_LIENZO * 0.4)
+            cv2.ellipse(overlay_shadow, (x1 + radius + shadow_offset, y1 + shadow_offset + radius), 
+                       (40, 40), 180, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x2 - radius + shadow_offset, y1 + shadow_offset + radius), 
+                       (40, 40), 270, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x1 + radius + shadow_offset, y2 + shadow_offset - radius), 
+                       (40, 40), 90, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x2 - radius + shadow_offset, y2 + shadow_offset - radius), 
+                       (40, 40), 0, 0, 90, (0, 0, 0), -1)
+            cv2.rectangle(overlay_shadow, (x1 + shadow_offset + radius, y1 + shadow_offset), 
+                         (x2 + shadow_offset - radius, y2 + shadow_offset), (0, 0, 0), -1)
+            cv2.rectangle(overlay_shadow, (x1 + shadow_offset, y1 + shadow_offset + radius), 
+                         (x2 + shadow_offset, y2 + shadow_offset - radius), (0, 0, 0), -1)
+            cv2.addWeighted(overlay_shadow, 0.3, lienzo, 0.7, 0, lienzo)
+            
+            # Rectángulo principal redondeado
+            overlay = lienzo.copy()
+            # Esquinas redondeadas
+            cv2.ellipse(overlay, (x1 + radius, y1 + radius), (radius, radius), 180, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x2 - radius, y1 + radius), (radius, radius), 270, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x1 + radius, y2 - radius), (radius, radius), 90, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, (255, 255, 255), -1)
+            cv2.rectangle(overlay, (x1 + radius, y1), (x2 - radius, y2), (255, 255, 255), -1)
+            cv2.rectangle(overlay, (x1, y1 + radius), (x2, y2 - radius), (255, 255, 255), -1)
+            
+            cv2.addWeighted(overlay, 0.15, lienzo, 0.85, 0, lienzo)
+            
+            # Marco decorativo redondeado con gradiente
+            for i in range(6):
+                opacity = 1.0 - (i * 0.15)
+                color_intensity = int(255 * opacity)
+                cv2.ellipse(lienzo, (x1 + radius, y1 + radius), (radius + i, radius + i), 180, 0, 90, 
+                           (color_intensity, color_intensity, color_intensity), 1)
+                cv2.ellipse(lienzo, (x2 - radius, y1 + radius), (radius + i, radius + i), 270, 0, 90, 
+                           (color_intensity, color_intensity, color_intensity), 1)
+                cv2.ellipse(lienzo, (x1 + radius, y2 - radius), (radius + i, radius + i), 90, 0, 90, 
+                           (color_intensity, color_intensity, color_intensity), 1)
+                cv2.ellipse(lienzo, (x2 - radius, y2 - radius), (radius + i, radius + i), 0, 0, 90, 
+                           (color_intensity, color_intensity, color_intensity), 1)
+                cv2.line(lienzo, (x1 + radius, y1 - i), (x2 - radius, y1 - i), 
+                        (color_intensity, color_intensity, color_intensity), 1)
+                cv2.line(lienzo, (x1 + radius, y2 + i), (x2 - radius, y2 + i), 
+                        (color_intensity, color_intensity, color_intensity), 1)
+                cv2.line(lienzo, (x1 - i, y1 + radius), (x1 - i, y2 - radius), 
+                        (color_intensity, color_intensity, color_intensity), 1)
+                cv2.line(lienzo, (x2 + i, y1 + radius), (x2 + i, y2 - radius), 
+                        (color_intensity, color_intensity, color_intensity), 1)
+            
+            # Título principal con efecto 3D - más arriba para no tapar al personaje
+            titulo = "BIENVENIDO A TU CLASE DE YOGA"
+            dibujar_texto_con_sombra(lienzo, titulo, 
+                                    (int(W_LIENZO * 0.18), int(H_LIENZO * 0.2)), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=1.6, 
+                                    text_color=(255, 255, 255), 
+                                    shadow_color=(80, 50, 30),
+                                    thickness=3, 
+                                    shadow_offset=4)
+            
+            
+            # Instrucción para comenzar con animación - más abajo
+            tiempo_actual = time.time()
+            parpadeo = int(tiempo_actual * 2) % 2  # Parpadeo cada 0.5 segundos
+            if parpadeo:
+                draw_text_with_background(lienzo, ">>> Pulsa ESPACIO para iniciar <<<", 
+                                        (int(W_LIENZO * 0.23), int(H_LIENZO * 0.3)), 
+                                        font=cv2.FONT_HERSHEY_DUPLEX,
+                                        font_scale=1.1, 
+                                        text_color=(255, 255, 255), 
+                                        bg_color=(0, 0, 0), 
+                                        thickness=2, 
+                                        padding=15,
+                                        border_radius=25)
+            
+
 
         elif estado_juego == "TERMINADO":
-            draw_text_with_background(lienzo, "¡HAS COMPLETADO LA SESION!", 
-                                    (W_LIENZO // 2 - 350, H_LIENZO // 2), 
-                                    font_scale=1.8, text_color=(0, 255, 0), 
-                                    bg_color=(0, 0, 0), thickness=3, padding=20)
+            # Usar el fondo decorativo de finalización
+            lienzo = fondo_final.copy()
             
-            draw_text_with_background(lienzo, "Pulsa ESC para salir", 
-                                    (W_LIENZO // 2 - 180, H_LIENZO // 2 + 80), 
-                                    font_scale=1.2, text_color=(255, 255, 255), 
-                                    bg_color=(50, 50, 50), thickness=2, padding=15)
+            # Rectángulo decorativo central con sombra - MÁS PEQUEÑO Y ARRIBA
+            shadow_offset = 8
+            overlay_shadow = lienzo.copy()
+            radius = 30
+            x1, y1 = int(W_LIENZO * 0.18), int(H_LIENZO * 0.08)  # Más arriba (8% en vez de 20%)
+            x2, y2 = int(W_LIENZO * 0.82), int(H_LIENZO * 0.40)  # Más pequeño (48% en vez de 80%)
+            
+            # Sombra redondeada
+            cv2.ellipse(overlay_shadow, (x1 + shadow_offset + radius, y1 + shadow_offset + radius), 
+                       (radius, radius), 180, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x2 + shadow_offset - radius, y1 + shadow_offset + radius), 
+                       (radius, radius), 270, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x1 + shadow_offset + radius, y2 + shadow_offset - radius), 
+                       (radius, radius), 90, 0, 90, (0, 0, 0), -1)
+            cv2.ellipse(overlay_shadow, (x2 + shadow_offset - radius, y2 + shadow_offset - radius), 
+                       (radius, radius), 0, 0, 90, (0, 0, 0), -1)
+            cv2.rectangle(overlay_shadow, (x1 + shadow_offset + radius, y1 + shadow_offset), 
+                         (x2 + shadow_offset - radius, y2 + shadow_offset), (0, 0, 0), -1)
+            cv2.rectangle(overlay_shadow, (x1 + shadow_offset, y1 + shadow_offset + radius), 
+                         (x2 + shadow_offset, y2 + shadow_offset - radius), (0, 0, 0), -1)
+            cv2.addWeighted(overlay_shadow, 0.25, lienzo, 0.75, 0, lienzo)
+            
+            # Rectángulo principal redondeado - MÁS TRANSPARENTE
+            overlay = lienzo.copy()
+            cv2.ellipse(overlay, (x1 + radius, y1 + radius), (radius, radius), 180, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x2 - radius, y1 + radius), (radius, radius), 270, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x1 + radius, y2 - radius), (radius, radius), 90, 0, 90, (255, 255, 255), -1)
+            cv2.ellipse(overlay, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, (255, 255, 255), -1)
+            cv2.rectangle(overlay, (x1 + radius, y1), (x2 - radius, y2), (255, 255, 255), -1)
+            cv2.rectangle(overlay, (x1, y1 + radius), (x2, y2 - radius), (255, 255, 255), -1)
+            cv2.addWeighted(overlay, 0.12, lienzo, 0.88, 0, lienzo)  # Más transparente
+            
+            # Marco dorado con efecto de brillo
+            for i in range(6):
+                opacity = 1.0 - (i * 0.15)
+                color = (int(0 * opacity), int(215 * opacity), int(255 * opacity))  # Dorado
+                cv2.ellipse(lienzo, (x1 + radius, y1 + radius), (radius + i, radius + i), 180, 0, 90, color, 1)
+                cv2.ellipse(lienzo, (x2 - radius, y1 + radius), (radius + i, radius + i), 270, 0, 90, color, 1)
+                cv2.ellipse(lienzo, (x1 + radius, y2 - radius), (radius + i, radius + i), 90, 0, 90, color, 1)
+                cv2.ellipse(lienzo, (x2 - radius, y2 - radius), (radius + i, radius + i), 0, 0, 90, color, 1)
+                cv2.line(lienzo, (x1 + radius, y1 - i), (x2 - radius, y1 - i), color, 1)
+                cv2.line(lienzo, (x1 + radius, y2 + i), (x2 - radius, y2 + i), color, 1)
+                cv2.line(lienzo, (x1 - i, y1 + radius), (x1 - i, y2 - radius), color, 1)
+                cv2.line(lienzo, (x2 + i, y1 + radius), (x2 + i, y2 - radius), color, 1)
+            
+            # Mensaje de felicitación centrado
+            mensaje = "FELICIDADES!"
+            mensaje_size = cv2.getTextSize(mensaje, cv2.FONT_HERSHEY_DUPLEX, 2.2, 4)[0]
+            x_mensaje = int((W_LIENZO - mensaje_size[0]) / 2)
+            dibujar_texto_con_sombra(lienzo, mensaje, 
+                                    (x_mensaje, int((y1 + y2) / 2) - 40), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=2.2, 
+                                    text_color=(255, 255, 255), 
+                                    shadow_color=(50, 100, 50),
+                                    thickness=4, 
+                                    shadow_offset=5)
+            
+            # Mensaje secundario centrado
+            mensaje2 = "Has completado tu sesion de yoga"
+            mensaje2_size = cv2.getTextSize(mensaje2, cv2.FONT_HERSHEY_DUPLEX, 1.1, 2)[0]
+            x_mensaje2 = int((W_LIENZO - mensaje2_size[0]) / 2)
+            dibujar_texto_con_sombra(lienzo, mensaje2, 
+                                    (x_mensaje2, int((y1 + y2) / 2) + 10), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=1.1, 
+                                    text_color=(240, 240, 240), 
+                                    shadow_color=(40, 80, 40),
+                                    thickness=2, 
+                                    shadow_offset=3)
+            
+            # Instrucción de salida centrada
+            salir_text = "Pulsa ESC para salir"
+            salir_size = cv2.getTextSize(salir_text, cv2.FONT_HERSHEY_DUPLEX, 0.85, 2)[0]
+            x_salir = int((W_LIENZO - salir_size[0]) / 2) - 7
+            draw_text_with_background(lienzo, salir_text, 
+                                    (x_salir, int((y1 + y2) / 2) + 70), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=0.85, 
+                                    text_color=(255, 255, 255), 
+                                    bg_color=(80, 100, 80), 
+                                    thickness=2, 
+                                    padding=12,
+                                    border_radius=20)
         
         elif estado_juego == "JUGANDO":
             nombre_postura = LISTA_POSTURAS[postura_actual_idx]
             definicion_postura = POSTURAS_YOGA[nombre_postura]
             img_profesor = POSTURAS_IMAGENES[nombre_postura]
             
-            # Redimensionar como siempre
+            # Redimensionar imagen de fondo
             img_completa = cv2.resize(img_profesor, (W_LIENZO, H_LIENZO))
-
-            # Crear lienzo vacío
             lienzo = np.zeros_like(img_completa)
-
-            # Desplazamiento hacia la izquierda (en píxeles)
-            shift = 150
-
-            # Copiar la imagen desplazada hacia la izquierda
+            shift = 0
             lienzo[:, :W_LIENZO - shift] = img_completa[:, shift:]
 
             # Detección de Pose
@@ -240,7 +462,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
             result = landmarker.detect_for_video(mp_image, timestamp)
             all_angles_correct = False
 
-            # Lógica de Ángulos
+            # Lógica de ángulos
             if result.pose_landmarks:
                 person_landmarks = result.pose_landmarks[0]
                 feedback_colores = {}
@@ -277,33 +499,59 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                 except Exception as e:
                     all_angles_correct = False
 
-            # NUEVO: Redimensionar cámara más pequeña
+            # Redimensionar cámara
             frame_resized = cv2.resize(frame, (W_CAMARA_DISPLAY, H_CAMARA_DISPLAY))
             
-            # Posicionar cámara en la esquina superior derecha con borde elegante
+            # Posicionar cámara
             x_cam = W_LIENZO - W_CAMARA_DISPLAY 
             y_cam = MARGEN
             
-            # Dibujar borde blanco alrededor de la cámara
+            # Borde decorativo doble para la cámara
             cv2.rectangle(lienzo, 
-                         (x_cam - 5, y_cam - 5), 
-                         (x_cam + W_CAMARA_DISPLAY + 5, y_cam + H_CAMARA_DISPLAY + 5), 
-                         (255, 255, 255), 5)
+                         (x_cam - 8, y_cam - 8), 
+                         (x_cam + W_CAMARA_DISPLAY + 8, y_cam + H_CAMARA_DISPLAY + 8), 
+                         (255, 255, 255), 8)
+            cv2.rectangle(lienzo, 
+                         (x_cam - 3, y_cam - 3), 
+                         (x_cam + W_CAMARA_DISPLAY + 3, y_cam + H_CAMARA_DISPLAY + 3), 
+                         (200, 200, 255), 3)
             
-            # Pegar cámara del usuario
+            # Pegar cámara
             lienzo[y_cam:y_cam+H_CAMARA_DISPLAY, x_cam:x_cam+W_CAMARA_DISPLAY] = frame_resized
             
-            # Título de la postura (arriba a la izquierda, con fondo)
+            # Título de la postura con diseño mejorado y bordes redondeados
             draw_text_with_background(lienzo, nombre_postura.replace("_", " "), 
-                                    (30, 60), font_scale=1.5, 
-                                    text_color=(255, 255, 0), 
-                                    bg_color=(0, 0, 0), thickness=3, padding=15)
+                                    (30, 60), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=1.3, 
+                                    text_color=(255, 255, 100), 
+                                    bg_color=(0, 0, 0), 
+                                    thickness=3, 
+                                    padding=15,
+                                    border_radius=20)
             
-            # Instrucciones (abajo a la izquierda)
-            draw_text_with_background(lienzo, "Presiona ENTER para saltar", 
-                                    (30, H_LIENZO - 550), font_scale=0.7,
-                                    text_color=(255, 255, 255), 
-                                    bg_color=(50, 50, 50), thickness=2, padding=10)
+            # Contador de posturas con bordes redondeados
+            postura_info = f"Postura {postura_actual_idx + 1}/{len(LISTA_POSTURAS)}"
+            draw_text_with_background(lienzo, postura_info, 
+                                    (30, 110), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=0.8, 
+                                    text_color=(200, 255, 200), 
+                                    bg_color=(0, 0, 0), 
+                                    thickness=2, 
+                                    padding=10,
+                                    border_radius=15)
+            
+            # # Instrucciones con bordes redondeados
+            # draw_text_with_background(lienzo, "Presiona ENTER para saltar", 
+            #                         (30, H_LIENZO - 40), 
+            #                         font=cv2.FONT_HERSHEY_DUPLEX,
+            #                         font_scale=0.6,
+            #                         text_color=(255, 255, 255), 
+            #                         bg_color=(50, 50, 50), 
+            #                         thickness=2, 
+            #                         padding=10,
+            #                         border_radius=15)
 
             # Barra de progreso y estado
             if all_angles_correct:
@@ -311,28 +559,34 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                     postura_tiempo_inicio = time.time()
                 tiempo_mantenido = time.time() - postura_tiempo_inicio
                 
-                # Barra de progreso debajo de la cámara
-                barra_width = W_CAMARA_DISPLAY - 20
+                # Barra de progreso más elegante
+                barra_width = W_CAMARA_DISPLAY - 40
                 progreso = int((tiempo_mantenido / SEGUNDOS_PARA_SUPERAR) * barra_width)
                 progreso = min(progreso, barra_width)
                 
-                x_barra = x_cam + 10
-                y_barra = y_cam + H_CAMARA_DISPLAY + 20
+                x_barra = x_cam + 20
+                y_barra = y_cam + H_CAMARA_DISPLAY + 30
                 
-                # Fondo de la barra
+                # Fondo con borde
+                cv2.rectangle(lienzo, (x_barra - 3, y_barra - 3), 
+                            (x_barra + barra_width + 3, y_barra + 33), 
+                            (255, 255, 255), 2)
                 cv2.rectangle(lienzo, (x_barra, y_barra), 
-                            (x_barra + barra_width, y_barra + 30), (0, 0, 0), -1)
-                # Progreso
-                cv2.rectangle(lienzo, (x_barra, y_barra), 
-                            (x_barra + progreso, y_barra + 30), (0, 255, 0), -1)
-                # Borde
-                cv2.rectangle(lienzo, (x_barra, y_barra), 
-                            (x_barra + barra_width, y_barra + 30), (255, 255, 255), 2)
+                            (x_barra + barra_width, y_barra + 30), 
+                            (30, 30, 30), -1)
                 
-                # Texto del tiempo
-                cv2.putText(lienzo, f"Mantén: {int(tiempo_mantenido)+1}s / {SEGUNDOS_PARA_SUPERAR}s", 
+                # Progreso con gradiente
+                for i in range(progreso):
+                    ratio = i / barra_width
+                    color = (0, int(200 + 55 * ratio), int(100 + 155 * ratio))
+                    cv2.line(lienzo, (x_barra + i, y_barra), 
+                            (x_barra + i, y_barra + 30), color, 1)
+                
+                # Texto del tiempo con fuente redondeada
+                tiempo_texto = f"¡Bien! Manten: {int(tiempo_mantenido)+1}s / {SEGUNDOS_PARA_SUPERAR}s"
+                cv2.putText(lienzo, tiempo_texto, 
                            (x_barra + 10, y_barra + 20), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                           cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 2)
 
                 if tiempo_mantenido > SEGUNDOS_PARA_SUPERAR:
                     postura_actual_idx += 1
@@ -341,11 +595,16 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                         estado_juego = "TERMINADO"
             else:
                 postura_tiempo_inicio = None
-                # Mensaje de alineación
-                draw_text_with_background(lienzo, "Alinea tu cuerpo", 
-                                        (30, 120), font_scale=1.2, 
-                                        text_color=(255, 100, 100), 
-                                        bg_color=(0, 0, 0), thickness=2, padding=10)
+                # Mensaje de alineación mejorado sin símbolos raros
+                draw_text_with_background(lienzo, "Alinea tu cuerpo con la postura", 
+                                        (30, 160), 
+                                        font=cv2.FONT_HERSHEY_DUPLEX,
+                                        font_scale=0.9, 
+                                        text_color=(255, 200, 100), 
+                                        bg_color=(0, 0, 0), 
+                                        thickness=2, 
+                                        padding=10,
+                                        border_radius=15)
 
         cv2.imshow("Profesor de Yoga - IPM", lienzo)
 
