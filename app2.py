@@ -188,7 +188,7 @@ except:
         cv2.circle(fondo_final, (x, y), 8, (255, 255, 150), -1)
 
 # Configuración de cámara
-W_CAMARA_DISPLAY = 800
+W_CAMARA_DISPLAY = 900
 H_CAMARA_DISPLAY = 700
 MARGEN = 10
 
@@ -200,7 +200,7 @@ MAPEO_IMAGENES = {
     "PINZA_DE_PIE": "pinza de pie.jpg",
     "PINZA_SENTADA": "pinza sentada.jpg",
     "ARBOL": "arbol.jpg",
-    "POSE_FACIL": "facil.jpg",
+    "POSE_FACIL": "pose facil.jpg",
     "TRIANGULO_EXTENDIDO": "triangulo extendido.jpg",
     "BARCA": "barca.jpg",
     "SENTADILLA": "sentadilla.jpg",
@@ -542,16 +542,16 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                                     padding=10,
                                     border_radius=15)
             
-            # # Instrucciones con bordes redondeados
-            # draw_text_with_background(lienzo, "Presiona ENTER para saltar", 
-            #                         (30, H_LIENZO - 40), 
-            #                         font=cv2.FONT_HERSHEY_DUPLEX,
-            #                         font_scale=0.6,
-            #                         text_color=(255, 255, 255), 
-            #                         bg_color=(50, 50, 50), 
-            #                         thickness=2, 
-            #                         padding=10,
-            #                         border_radius=15)
+            # Instrucciones con bordes redondeados
+            draw_text_with_background(lienzo, "Presiona ENTER para saltar", 
+                                    (30, H_LIENZO - 500), 
+                                    font=cv2.FONT_HERSHEY_DUPLEX,
+                                    font_scale=0.6,
+                                    text_color=(255, 255, 255), 
+                                    bg_color=(50, 50, 50), 
+                                    thickness=2, 
+                                    padding=10,
+                                    border_radius=15)
 
             # Barra de progreso y estado
             if all_angles_correct:
