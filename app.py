@@ -611,7 +611,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                 progreso = min(progreso, barra_width)
                 
                 x_barra = x_cam + 20
-                y_barra = y_cam + H_CAMARA_DISPLAY + 30
+                y_barra = y_cam + H_CAMARA_DISPLAY -50
                 
                 cv2.rectangle(lienzo, (x_barra - 3, y_barra - 3), 
                             (x_barra + barra_width + 3, y_barra + 33), 
@@ -627,7 +627,7 @@ with PoseLandmarker.create_from_options(options) as landmarker:
                     cv2.line(lienzo, (x_barra + i, y_barra), 
                             (x_barra + i, y_barra + 30), color, 1)
                 
-                tiempo_texto = f"¡Bien! Manten: {int(tiempo_mantenido)+1}s / {SEGUNDOS_PARA_SUPERAR}s"
+                tiempo_texto = f"Bien! Manten: {int(tiempo_mantenido)+1}s / {SEGUNDOS_PARA_SUPERAR}s"
                 cv2.putText(lienzo, tiempo_texto, 
                            (x_barra + 10, y_barra + 20), 
                            cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 2)
