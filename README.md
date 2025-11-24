@@ -1,52 +1,96 @@
-# IPM - Práctica 2 
+# Instructor de Yoga AI (Visión Artificial)
 
-![mediapipe_game_ipm](https://github.com/user-attachments/assets/1c51471e-8b4b-4f56-bd25-9cebfacb2af2)
+Este proyecto es una aplicación interactiva de escritorio que actúa como un instructor de yoga personal. Utilizando **Python**, **OpenCV** y **MediaPipe**, el sistema analiza la postura del usuario en tiempo real a través de la cámara web, calcula los ángulos corporales y proporciona retroalimentación visual inmediata (corrección de postura) comparándola con una base de datos de asanas predefinidas.
 
+## Características
 
-## Introducción
+* **Detección de Pose en Tiempo Real:** Utiliza el modelo avanzado de MediaPipe Pose Landmarker.
+* **Feedback Visual:**
+    * 🔴 **Rojo:** La articulación no está en el ángulo correcto.
+    * 🟢 **Verde:** La articulación está correctamente alineada.
+* **Sistema de Progresión:** Barra de tiempo que se llena cuando mantienes la postura correcta por los segundos definidos.
+* **Interfaz Gráfica (UI):** Pantallas de inicio y fin, superposiciones informativas y guías visuales.
+* **Tolerancia Ajustable:** Configuración de márgenes de error para diferentes niveles de dificultad.
 
-En esta práctica veremos como realizar interfaces para la interacción persona-máquina (IPM o HCI) basadas en visión por computador. La interacción, como hemos visto en teoría no tiene porqué limitarse al diseño y desarrollo de interfaces para la manipulación de sistemas operativos, aunque sí existe también esa vertiente. Existen multitud de aplicaciones en videojuegos o juegos ‘serios’ para rehabilitación u otras finalidades. También existen aplicaciones en interacción persona-entorno, en domótica avanzada (casas inteligentes, edificios inteligentes), que no dejan de ser sistemas informáticos distribuidos con los que se interactúa. La idea es que estos sistemas puedan responder a las necesidades de las personas que los habitan y ayudar o apoyar sus tareas en el día a día. También pueden ‘pasivamente’ analizar lo que ocurre (interacción pasiva) y evitar accidentes o evaluar el estado de salud entre otros (salud electrónica, e-Health, teleasistencia, etc.).
+## Requisitos Previos
 
-En esta práctica se ha hecho uso de **MediaPipe**, un framework de código abierto desarrollado por Google que permite construir e implementar _pipelines_ de procesamiento multimedia (como video, audio e imágenes) en tiempo real, especialmente útiles para tareas de visión por computador y aprendizaje automático. Ofrece soluciones preentrenadas y optimizadas (como **detección facial**, **reconocimiento de gestos**, **estimación de pose**, **seguimiento de manos** o **segmentación de objetos**) que funcionan eficientemente tanto en dispositivos móviles como en un computador. Gracias a su arquitectura modular y multiplataforma, MediaPipe ha facilitado el desarrollo rápido de aplicaciones de inteligencia artificial.
+Necesitas tener instalado **Python 3.8** o superior.
 
-Este repositorio contiene un juego sencillo usando la librería de MediaPipe que puede servir como guía para el desarrollo de la práctica. Para crear vuesto videojuego, podéis hacer uso de los modelos que ofrece MediaPipe en su página oficial:
+### Librerías necesarias
 
-- *```Pose Landmarker```* (usado en este repositorio), [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker?hl=es-419).
-- *```Hand Landmarker```*, [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker?hl=es-419).
-- *```Face Landmarker```*, [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/index?hl=es-419).
-- *```Holistic Landmarker```*, [aquí](https://ai.google.dev/edge/mediapipe/solutions/vision/holistic_landmarker?hl=es-419).
+Puedes instalar todas las dependencias ejecutando el siguiente comando:
 
-## Prerequisitos
-
-Tener instalado **Conda**, [instalar aquí](https://www.anaconda.com/docs/getting-started/miniconda/install).
-
-## Requisitos
-
-Crear un entorno de conda:
 ```bash
-conda create -n IPM python=3.12
-conda activate IPM
+pip install requirements.txt
+pip install opencv-python mediapipe numpy
 ```
 
-## Instalación
+## Estructura del Proyecto
 
-Se instalan las dependencias necesarias (MediaPipe, Requests, tqdm, cv2, numpy, etc.):
-```bash
-pip install -r requirements.txt
+Para que el código funcione correctamente, debes organizar tus carpetas y archivos de la siguiente manera:
+
+```text
+PROYECTO_YOGA/
+│
+├── app.py                # Script principal (Lógica del juego y bucle de video)
+├── config.py              # Configuraciones globales (tiempos, rutas)
+├── posturas.py            # Base de datos de ángulos y tolerancias
+├── angulos.py             # Mapeo de landmarks de MediaPipe
+│
+├── models/                # Carpeta para el modelo de IA
+│   └── pose_landmarker_full.task  <-- [IMPORTANTE: Descargar este archivo]
+│
+└── fotos/                 # Carpeta para las imágenes de referencia
+    ├── inicio.jpg         # (Opcional) Fondo de pantalla de inicio
+    ├── final.jpg          # (Opcional) Fondo de pantalla final
+    ├── arbol.jpg          # Imágenes de las posturas...
+    ├── perro boca abajo.jpg
+    ├── ...
+    └── [Otras imágenes definidas en main.py]
 ```
 
-## Descargar pesos
+## Instalación y Configuración
 
-Script para poder descargar los pesos del modelo *Pose Landmarker*:
-```bash
-python download_models.py
-```
+## Ejecución y Uso
 
-Para descargar los pesos de otros modelos como _Hand Landmarker_, _Face Landmarker_ u _Holisitc Landmarker_ debes de descargarlos de los [enlaces](https://github.com/CarloHSUA/IPM/tree/main?tab=readme-ov-file#introducci%C3%B3n) de la página oficial de MediaPipe
+Para iniciar la aplicación, ejecuta el archivo principal desde tu terminal:
 
-
-
-## Ejecución
 ```bash
 python app.py
 ```
+
+### Controles
+
+* **ESPACIO:** En la pantalla de título, inicia la sesión.
+* **ENTER:** Durante la sesión, salta la postura actual (útil si no logras completarla).
+* **ESC:** Cierra la aplicación en cualquier momento.
+
+### Cómo funciona
+
+1. El sistema te mostrará una imagen de la postura objetivo.
+2. Alinéate frente a la cámara (asegura buena iluminación).
+3. Verás puntos sobre tus articulaciones en la pantalla. Ajusta tu cuerpo hasta que todos los puntos se vuelvan **verdes**.
+4. Mantén la posición hasta que la barra de progreso se complete.
+
+## Personalización
+
+### Modificar Tiempos (`config.py`)
+
+Puedes cambiar la duración del juego o los tiempos de espera editando este archivo:
+
+```python
+self.game_time = 20     # Duración total
+self.padding = 100      # Márgenes visuales
+```
+
+### Añadir o Calibrar Posturas (`posturas.py`)
+
+Si deseas agregar nuevas posturas o ajustar la dificultad:
+
+1. Abre `posturas.py`.
+2. Modifica los ángulos objetivo o el valor de `tolerancia` (actualmente en 40 grados).
+    * *Bajar la tolerancia (ej. a 20) hace el juego más difícil.*
+    * *Subir la tolerancia (ej. a 50) lo hace más fácil.*
+
+---
+
