@@ -3,7 +3,7 @@ mp_pose = mp.solutions.pose
 
 # Indica al programa los puntos de MediaPipe necesarios para cada ángulo del cuerpo
 ANGULO_LANDMARKS_MAP = {
-    # --- CODOS ---
+    # CODOS
     "angulo_codo_izq": (
         mp_pose.PoseLandmark.LEFT_SHOULDER.value,
         mp_pose.PoseLandmark.LEFT_ELBOW.value,
@@ -14,7 +14,7 @@ ANGULO_LANDMARKS_MAP = {
         mp_pose.PoseLandmark.RIGHT_ELBOW.value,
         mp_pose.PoseLandmark.RIGHT_WRIST.value
     ),
-    # --- HOMBROS (ángulo entre brazo y torso) ---
+    # HOMBROS
     "angulo_hombro_izq": (
         mp_pose.PoseLandmark.LEFT_ELBOW.value,
         mp_pose.PoseLandmark.LEFT_SHOULDER.value,
@@ -25,7 +25,7 @@ ANGULO_LANDMARKS_MAP = {
         mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
         mp_pose.PoseLandmark.RIGHT_HIP.value
     ),
-    # --- CADERAS (ángulo entre torso y muslo) ---
+    # CADERAS
     "angulo_cadera_izq": (
         mp_pose.PoseLandmark.LEFT_SHOULDER.value,
         mp_pose.PoseLandmark.LEFT_HIP.value,
@@ -36,7 +36,7 @@ ANGULO_LANDMARKS_MAP = {
         mp_pose.PoseLandmark.RIGHT_HIP.value,
         mp_pose.PoseLandmark.RIGHT_KNEE.value
     ),
-    # --- RODILLAS ---
+    # RODILLAS
     "angulo_rodilla_izq": (
         mp_pose.PoseLandmark.LEFT_HIP.value,
         mp_pose.PoseLandmark.LEFT_KNEE.value,
