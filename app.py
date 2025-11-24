@@ -256,11 +256,8 @@ H_CAMARA_DISPLAY = 700
 MARGEN = 10
 
 MAPEO_IMAGENES = {
-    "FLEXION": "flexion.jpg",
     "GUERRERO_4": "guerrero 4.jpg",
     "PERRO_BOCA_ABAJO": "perro boca abajo.jpg",
-    "PERRO_BOCA_ARRIBA": "perro boca arriba.jpg",
-    "PINZA_DE_PIE": "pinza de pie.jpg",
     "PINZA_SENTADA": "pinza sentada.jpg",
     "ARBOL": "arbol.jpg",
     "POSE_FACIL": "pose facil.jpg",
@@ -289,11 +286,8 @@ LISTA_POSTURAS = [
     "POSE_FACIL",
     "MESA",
     "PERRO_BOCA_ABAJO",
-    "PERRO_BOCA_ARRIBA",
-    "PINZA_DE_PIE",
     "PINZA_SENTADA",
     "SENTADILLA",
-    "FLEXION",
     "PLANCHA_LATERAL",
     "ARBOL",
     "GUERRERO_1",

@@ -70,7 +70,7 @@ POSTURAS_YOGA = {
         "angulo_cadera_der": 175,
         "angulo_rodilla_izq": 45,
         "angulo_rodilla_der": 175,
-        "tolerancia": 40
+        "tolerancia": 50
     },
 
     "POSE_FACIL": {
